@@ -1,0 +1,118 @@
+/* Import pywal colors */
+@theme "colors.rasi"
+
+configuration {
+    show-icons: true;
+    display-drun: "";
+    drun-display-format: "{icon} {name}";
+    disable-history: false;
+    modi: "drun,run,window";
+    sidebar-mode: false;
+}
+
+* {
+    font: "JetBrainsMono Nerd Font 13";
+    background-color: transparent;
+}
+
+window {
+    width: 650;
+    border: 2;
+    border-radius: 16;
+    border-color: rgba(255, 255, 255, 0.15);
+    padding: 0;
+    background-color: rgba(20, 20, 25, 0.9);
+}
+
+mainbox {
+    border: 0;
+    padding: 16;
+    background-color: rgba(30, 30, 35, 0.95);
+    border-radius: 14;
+    children: [inputbar, listview];
+}
+
+inputbar {
+    children: [prompt, entry];
+    padding: 12px 18px;
+    margin: 0 0 10px 0;
+    border-radius: 10;
+    background-color: rgba(0, 0, 0, 0.4);
+    border: 1;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+prompt {
+    text-color: @active-background;
+    padding: 0 10px 0 0;
+}
+
+entry {
+    padding: 6px 0;
+    text-color: #ffffff;
+    placeholder-color: rgba(255, 255, 255, 0.5);
+}
+
+listview {
+    columns: 1;
+    lines: 8;
+    spacing: 6px;
+    padding: 6px 0 0 0;
+    fixed-height: false;
+    border: 0;
+    background-color: transparent;
+}
+
+element {
+    padding: 10px 14px;
+    margin: 0 2px;
+    border-radius: 10;
+    background-color: transparent;
+    text-color: #ffffff;
+}
+
+element.normal.normal {
+    background-color: transparent;
+    text-color: #e8e8e8;
+}
+
+element.normal.active {
+    background-color: rgba(255, 255, 255, 0.06);
+    text-color: #ffffff;
+}
+
+element.selected.normal {
+    background-color: @active-background;
+    text-color: #000000;
+}
+
+element.selected.active {
+    background-color: @active-background;
+    text-color: #000000;
+}
+
+element.alternate.normal {
+    background-color: transparent;
+    text-color: #e8e8e8;
+}
+
+element.alternate.active {
+    background-color: rgba(255, 255, 255, 0.06);
+    text-color: #ffffff;
+}
+
+element-text {
+    background-color: transparent;
+    text-color: inherit;
+}
+
+element-icon {
+    background-color: transparent;
+}
+
+scrollbar {
+    width: 4px;
+    border: 0;
+    handle-width: 8px;
+    padding: 0;
+}

@@ -1,0 +1,17 @@
+# Wallpapers (too large to track)
+wallpapers/*.jpg
+wallpapers/*.png
+wallpapers/*.mp4
+
+# Cache
+.cache/
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
