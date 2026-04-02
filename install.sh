@@ -44,13 +44,13 @@ install_yay() {
 
 PACKAGES_PACMAN=(
     "hyprland" "hyprlock" "xdg-desktop-portal-hyprland"
-    "kitty" "starship" "rofi" "swaync" "cava"
+    "kitty" "starship" "rofi" "swaync" "cava" "cmatrix"
     "pipewire" "pipewire-pulse" "wireplumber" "pavucontrol"
-    "playerctl" "mpv" "swww" "pywal16" "brightnessctl"
+    "playerctl" "mpv" "awww" "python-pywal" "brightnessctl"
     "wl-clipboard" "jq" "ffmpeg" "imagemagick" "polkit-kde-agent"
     "network-manager-applet" "nm-connection-editor" "bluez" "bluez-utils"
     "ttf-jetbrains-mono-nerd" "ttf-inter" "cliphist" "fastfetch"
-    "zsh"
+    "zsh" "dolphin" "qt5-wayland" "qt6-wayland"
 )
 
 PACKAGES_YAY=(
@@ -59,6 +59,7 @@ PACKAGES_YAY=(
     "pywalfox-bin"
     "grim" "slurp" "hyprshot"
     "ttf-material-design-icons-git"
+    "mpvpaper"
 )
 
 install_packages() {
@@ -68,10 +69,40 @@ install_packages() {
     yay -S --needed --noconfirm "${PACKAGES_YAY[@]}"
 }
 
+install_oh_my_zsh() {
+    if [ -d "$HOME/.oh-my-zsh" ]; then
+        warn "Oh My Zsh is already installed, skipping..."
+    else
+        info "Installing Oh My Zsh..."
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+    fi
+
+    # Install Plugins
+    ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
+    
+    info "Installing ZSH Plugins..."
+    # Syntax Highlighting
+    if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
+        git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
+    fi
+    
+    # Auto-suggestions
+    if [ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
+        git clone https://github.com/zsh-users/zsh-autosuggestions.git "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
+    fi
+
+    # Set zsh as default shell
+    if [ "$SHELL" != "/usr/bin/zsh" ]; then
+        info "Setting zsh as default shell..."
+        sudo chsh -s /usr/bin/zsh "$USER"
+    fi
+}
+
 copy_dotfiles() {
     info "Deploying dotfiles from $DOTS_SRC..."
     
-    cp -a "$DOTS_SRC/." "$HOME/"
+    # We use -a to preserve permissions and -f to overwrite the default .zshrc
+    cp -af "$DOTS_SRC/." "$HOME/"
 
     # Ensure scripts are executable
     if [ -d "$HOME/.config/hypr/scripts" ]; then
@@ -87,28 +118,14 @@ enable_services() {
     systemctl --user enable --now pipewire.socket pipewire-pulse.socket wireplumber.service
 }
 
-install_oh_my_zsh() {
-    info "Installing Oh My Zsh..."
-    if [ -d "$HOME/.oh-my-zsh" ]; then
-        warn "Oh My Zsh is already installed, skipping..."
-        return
-    fi
-    # Download and install Oh My Zsh
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-
-    # Set zsh as default shell
-    info "Setting zsh as default shell..."
-    sudo chsh -s /usr/bin/zsh "$USER"
-}
-
 main() {
     check_distro
     install_yay
     install_packages
+    install_oh_my_zsh
     copy_dotfiles
     enable_services
-    install_oh_my_zsh
-    echo -e "\n${GREEN}Installation Complete!${NC}"
+    echo -e "\n${GREEN}Installation Complete! Please reboot to ensure all services start correctly.${NC}"
 }
 
 main
