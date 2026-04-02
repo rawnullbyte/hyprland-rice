@@ -50,6 +50,7 @@ PACKAGES_PACMAN=(
     "wl-clipboard" "jq" "ffmpeg" "imagemagick" "polkit-kde-agent"
     "network-manager-applet" "nm-connection-editor" "bluez" "bluez-utils"
     "ttf-jetbrains-mono-nerd" "ttf-inter" "cliphist" "fastfetch"
+    "zsh"
 )
 
 PACKAGES_YAY=(
@@ -86,12 +87,27 @@ enable_services() {
     systemctl --user enable --now pipewire.socket pipewire-pulse.socket wireplumber.service
 }
 
+install_oh_my_zsh() {
+    info "Installing Oh My Zsh..."
+    if [ -d "$HOME/.oh-my-zsh" ]; then
+        warn "Oh My Zsh is already installed, skipping..."
+        return
+    fi
+    # Download and install Oh My Zsh
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+
+    # Set zsh as default shell
+    info "Setting zsh as default shell..."
+    sudo chsh -s /usr/bin/zsh "$USER"
+}
+
 main() {
     check_distro
     install_yay
     install_packages
     copy_dotfiles
     enable_services
+    install_oh_my_zsh
     echo -e "\n${GREEN}Installation Complete!${NC}"
 }
 
