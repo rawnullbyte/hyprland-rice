@@ -43,23 +43,34 @@ install_yay() {
 }
 
 PACKAGES_PACMAN=(
-    "hyprland" "hyprlock" "xdg-desktop-portal-hyprland"
-    "kitty" "starship" "rofi" "swaync" "cava" "cmatrix"
-    "pipewire" "pipewire-pulse" "wireplumber" "pavucontrol"
-    "playerctl" "mpv" "awww" "python-pywal" "brightnessctl"
-    "wl-clipboard" "jq" "ffmpeg" "imagemagick" "polkit-kde-agent"
+    # Core Hyprland & Wayland
+    "hyprland" "hyprlock" "xdg-desktop-portal-hyprland" "qt5-wayland" "qt6-wayland"
+    
+    # Terminal & Shell
+    "kitty" "zsh" "starship" "fastfetch"
+    
+    # Desktop Components & Navigation
+    "rofi-wayland" "swaync" "dolphin" "polkit-kde-agent"
+    
+    # Media & Audio (Powers your wpctl and playerctl binds)
+    "pipewire" "pipewire-pulse" "wireplumber" "pavucontrol" "playerctl" "mpv"
+    
+    # Utilities (Brightness, Clipboard, and Screenshots)
+    "brightnessctl" "wl-clipboard" "cliphist" "grim" "slurp" "swappy"
+    "jq" "ffmpeg" "imagemagick"
+    
+    # Appearance & Networking
+    "cava" "cmatrix" "python-pywal" "ttf-jetbrains-mono-nerd" "ttf-inter"
     "network-manager-applet" "nm-connection-editor" "bluez" "bluez-utils"
-    "ttf-jetbrains-mono-nerd" "ttf-inter" "cliphist" "fastfetch"
-    "zsh" "dolphin" "qt5-wayland" "qt6-wayland"
 )
 
 PACKAGES_YAY=(
-    "quickshell-git"
-    "swayosd-git" 
-    "pywalfox-bin"
-    "grim" "slurp" "hyprshot"
-    "ttf-material-design-icons-git"
-    "mpvpaper"
+    "quickshell-git"                # For desktop widgets/shell
+    "swayosd-git"                   # On-screen display for volume/brightness
+    "pywalfox-bin"                  # Connects pywal colors to Firefox
+    "hyprshot"                      # Alternative screenshot utility
+    "ttf-material-design-icons-git" # Required for many status bar icons
+    "mpvpaper"                      # For video wallpapers
 )
 
 install_packages() {
@@ -102,7 +113,9 @@ copy_dotfiles() {
     info "Deploying dotfiles from $DOTS_SRC..."
     
     # We use -a to preserve permissions and -f to overwrite the default .zshrc
-    cp -af "$DOTS_SRC/." "$HOME/"
+    if [ -d "$DOTS_SRC" ]; then
+        cp -af "$DOTS_SRC/." "$HOME/"
+    fi
 
     # Ensure scripts are executable
     if [ -d "$HOME/.config/hypr/scripts" ]; then
@@ -113,8 +126,12 @@ copy_dotfiles() {
 }
 
 enable_services() {
-    info "Enabling essential services..."
+    info "Configuring groups and services..."
+
+    # Enable Bluetooth
     sudo systemctl enable --now bluetooth.service
+    
+    # Enable Audio Services (User Level)
     systemctl --user enable --now pipewire.socket pipewire-pulse.socket wireplumber.service
 }
 
@@ -125,7 +142,8 @@ main() {
     install_oh_my_zsh
     copy_dotfiles
     enable_services
-    echo -e "\n${GREEN}Installation Complete! Please reboot to ensure all services start correctly.${NC}"
+    echo -e "\n${GREEN}Installation Complete!${NC}"
+    echo -e "${YELLOW}IMPORTANT: You MUST reboot now for group permissions (SwayOSD) to take effect.${NC}"
 }
 
 main
