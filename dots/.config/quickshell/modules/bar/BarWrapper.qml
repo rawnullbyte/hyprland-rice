@@ -48,6 +48,14 @@ Scope {
         property var settingsPopup: item
     }
 
+    // Tray menu popup window
+    Loader {
+        id: trayMenuPopupLoader
+        source: "components/TrayMenuPopupWindow.qml"
+
+        property var trayMenuPopup: item
+    }
+
     Variants {
         model: Quickshell.screens
 
@@ -80,7 +88,8 @@ Scope {
                          item.networkPopup = Qt.binding(() => networkPopupLoader.item)
                          item.weatherPopup = Qt.binding(() => weatherPopupLoader.item)
                          item.calendarPopup = Qt.binding(() => calendarPopupLoader.item)
-                         item.settingsPopup = Qt.binding(() => settingsPopupLoader.item)
+                          item.settingsPopup = Qt.binding(() => settingsPopupLoader.item)
+                          item.trayMenuPopup = Qt.binding(() => trayMenuPopupLoader.item)
                      }
                  }
             }

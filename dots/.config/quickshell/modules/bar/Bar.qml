@@ -18,6 +18,7 @@ Item {
     property var calendarPopup
     property var controlCenter
     property var settingsPopup
+    property var trayMenuPopup
 
      readonly property var config: QsConfig.Config
     readonly property var appearance: QsConfig.AppearanceConfig
@@ -434,62 +435,101 @@ Item {
                 }
             }
             
-             // ═══ PILL 3: Battery + Control Center + Tray ═══
-            Rectangle {
-                id: powerPill
-                height: 28
-                width: powerContent.implicitWidth + 16
-                radius: 14
-                color: pywal.surfaceContainer
-                border.width: 1
-                border.color: Qt.rgba(0, 0, 0, 0.15)
-                
-                Behavior on color {
-                    ColorAnimation { duration: 300 }
-                }
-                Behavior on width {
-                    NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
-                }
-                
-                // Highlight
-                Rectangle {
-                    anchors.top: parent.top
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.margins: 1
-                    height: parent.height / 2
-                    radius: parent.radius - 1
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.04) }
-                        GradientStop { position: 1.0; color: "transparent" }
-                    }
-                }
-                
-                Row {
-                    id: powerContent
-                    anchors.centerIn: parent
-                    spacing: 6
+              // ═══ PILL 3: System Tray ═══
+             Rectangle {
+                 id: trayPill
+                 height: 28
+                 width: systemTrayLoader.width + 16
+                 radius: 14
+                 color: pywal.surfaceContainer
+                 border.width: 1
+                 border.color: Qt.rgba(0, 0, 0, 0.15)
+                 
+                 Behavior on color {
+                     ColorAnimation { duration: 300 }
+                 }
+                 Behavior on width {
+                     NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
+                 }
+                 
+                 // Highlight
+                 Rectangle {
+                     anchors.top: parent.top
+                     anchors.left: parent.left
+                     anchors.right: parent.right
+                     anchors.margins: 1
+                     height: parent.height / 2
+                     radius: parent.radius - 1
+                     gradient: Gradient {
+                         GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.04) }
+                         GradientStop { position: 1.0; color: "transparent" }
+                     }
+                 }
+                 
+                 Loader {
+                     id: systemTrayLoader
+                     anchors.centerIn: parent
+                     asynchronous: true
+                     source: "components/SystemTray.qml"
 
-                    // Battery
-                    Loader {
-                        id: batteryLoader
-                        anchors.verticalCenter: parent.verticalCenter
-                        asynchronous: true
-                        source: "components/Battery.qml"
-                    }
+                     Binding {
+                         target: systemTrayLoader.item
+                         property: "barWindow"
+                         value: root.barWindow
+                         when: systemTrayLoader.status === Loader.Ready && root.barWindow !== undefined
+                         restoreMode: Binding.RestoreBinding
+                     }
 
-                    // System Tray (only if has items)
-                    Loader {
-                        id: systemTrayLoader
-                        anchors.verticalCenter: parent.verticalCenter
-                        asynchronous: true
-                        source: "components/SystemTray.qml"
-                        visible: item?.hasItems ?? false
-                    }
+                     Binding {
+                         target: systemTrayLoader.item
+                         property: "trayMenuPopup"
+                         value: root.trayMenuPopup
+                         when: systemTrayLoader.status === Loader.Ready && root.trayMenuPopup !== undefined
+                         restoreMode: Binding.RestoreBinding
+                     }
                  }
              }
 
-             // ═══ PILL 4: Settings Cog ═══
+             // ═══ PILL 4: Battery ═══
+             Rectangle {
+                 id: powerPill
+                 height: 28
+                 width: batteryLoader.implicitWidth + 16
+                 radius: 14
+                 color: pywal.surfaceContainer
+                 border.width: 1
+                 border.color: Qt.rgba(0, 0, 0, 0.15)
+                 
+                 Behavior on color {
+                     ColorAnimation { duration: 300 }
+                 }
+                 Behavior on width {
+                     NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
+                 }
+                 
+                 // Highlight
+                 Rectangle {
+                     anchors.top: parent.top
+                     anchors.left: parent.left
+                     anchors.right: parent.right
+                     anchors.margins: 1
+                     height: parent.height / 2
+                     radius: parent.radius - 1
+                     gradient: Gradient {
+                         GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.04) }
+                         GradientStop { position: 1.0; color: "transparent" }
+                     }
+                 }
+                 
+                 Loader {
+                     id: batteryLoader
+                     anchors.centerIn: parent
+                     asynchronous: true
+                     source: "components/Battery.qml"
+                 }
+             }
+
+             // ═══ PILL 5: Settings Cog ═══
              Rectangle {
                  id: settingsPill
                  height: 28
