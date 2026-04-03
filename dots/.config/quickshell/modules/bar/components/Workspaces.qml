@@ -15,6 +15,13 @@ Item {
     readonly property int activeWsId: hypr.activeWsId
     readonly property var occupied: hypr.getOccupiedWorkspaces()
     
+    readonly property int groupSize: 10
+    readonly property int baseWs: {
+        let ws = root.activeWsId
+        if (ws < 1) ws = 1
+        return Math.floor((ws - 1) / root.groupSize) * root.groupSize + 1
+    }
+    
     implicitWidth: layout.implicitWidth
     implicitHeight: config.bar.height - config.bar.padding * 2
     
@@ -31,16 +38,18 @@ Item {
             delegate: Loader {
                 required property int index
                 
+                readonly property int wsId: root.baseWs + index
+                
                 source: "Workspace.qml"
                 asynchronous: false
                 
                 onLoaded: {
-                    item.workspaceId = index + 1
-                    item.isActive = Qt.binding(() => root.activeWsId === (index + 1))
-                    item.isOccupied = Qt.binding(() => root.occupied[index + 1] ?? false)
+                    item.workspaceId = wsId
+                    item.isActive = Qt.binding(() => root.activeWsId === wsId)
+                    item.isOccupied = Qt.binding(() => root.occupied[wsId] ?? false)
                     item.clicked.connect(function() {
-                        if (root.hypr.activeWsId !== item.workspaceId) {
-                            root.hypr.dispatch(`workspace ${item.workspaceId}`)
+                        if (root.hypr.activeWsId !== wsId) {
+                            root.hypr.dispatch(`workspace ${wsId}`)
                         }
                     })
                 }

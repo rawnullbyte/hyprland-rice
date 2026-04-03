@@ -2,7 +2,7 @@ import QtQuick 6.10
 
 QtObject {
     readonly property var workspaces: QtObject {
-        property int count: 8
+        property int count: 10
         property int workspaceSize: 18
         property int spacing: 6
         property int cornerRadius: 10
