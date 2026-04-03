@@ -20,4 +20,11 @@ QtObject {
         property real borderOpacity: 0.12
         property int spacing: 6
     }
+
+    readonly property var tray: QtObject {
+        property var pinnedItems: []
+        property bool filterPassive: false
+        property bool invertPinnedItems: false
+        property bool showItemId: false
+    }
 }

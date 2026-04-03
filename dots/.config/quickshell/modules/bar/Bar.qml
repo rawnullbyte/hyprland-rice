@@ -11,16 +11,16 @@ Item {
     id: root
 
     property var screen
-     property var barWindow
+    property var barWindow
     property var bluetoothPopup
     property var networkPopup
     property var weatherPopup
     property var calendarPopup
     property var controlCenter
     property var settingsPopup
-    property var trayMenuPopup
+    property var trayItemPopup
 
-     readonly property var config: QsConfig.Config
+    readonly property var config: QsConfig.Config
     readonly property var appearance: QsConfig.AppearanceConfig
     readonly property var pywal: QsServices.Pywal
 
@@ -31,6 +31,7 @@ Item {
         if (weatherPopup && weatherPopup !== except) weatherPopup.shouldShow = false
         if (calendarPopup && calendarPopup !== except) calendarPopup.shouldShow = false
         if (settingsPopup && settingsPopup !== except) settingsPopup.shouldShow = false
+        if (trayItemPopup && trayItemPopup !== except) trayItemPopup.shouldShow = false
     }
     
     Item {
@@ -434,16 +435,17 @@ Item {
                     }
                 }
             }
-            
-              // ═══ PILL 3: System Tray ═══
+
+             // ═══ PILL 4: System Tray Icons ═══
              Rectangle {
-                 id: trayPill
+                 id: systemTrayPill
                  height: 28
-                 width: systemTrayLoader.width + 16
+                 width: systemTrayLoader.item && systemTrayLoader.item.trayCount > 0 ? systemTrayLoader.implicitWidth + 16 : 0
                  radius: 14
                  color: pywal.surfaceContainer
                  border.width: 1
                  border.color: Qt.rgba(0, 0, 0, 0.15)
+                 visible: systemTrayLoader.item && systemTrayLoader.item.trayCount > 0
                  
                  Behavior on color {
                      ColorAnimation { duration: 300 }
@@ -460,6 +462,7 @@ Item {
                      anchors.margins: 1
                      height: parent.height / 2
                      radius: parent.radius - 1
+                     visible: parent.visible
                      gradient: Gradient {
                          GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.04) }
                          GradientStop { position: 1.0; color: "transparent" }
@@ -471,26 +474,58 @@ Item {
                      anchors.centerIn: parent
                      asynchronous: true
                      source: "components/SystemTray.qml"
-
+                     
+                     Binding {
+                        target: systemTrayLoader.item
+                        property: "barWindow"
+                        value: root.barWindow
+                        when: systemTrayLoader.status === Loader.Ready && root.barWindow !== undefined
+                        restoreMode: Binding.RestoreBinding
+                     }
+                     
                      Binding {
                          target: systemTrayLoader.item
-                         property: "barWindow"
-                         value: root.barWindow
-                         when: systemTrayLoader.status === Loader.Ready && root.barWindow !== undefined
+                         property: "trayItemPopup"
+                         value: root.trayItemPopup
+                         when: systemTrayLoader.status === Loader.Ready && root.trayItemPopup !== undefined
                          restoreMode: Binding.RestoreBinding
                      }
-
+                     
                      Binding {
-                         target: systemTrayLoader.item
-                         property: "trayMenuPopup"
-                         value: root.trayMenuPopup
-                         when: systemTrayLoader.status === Loader.Ready && root.trayMenuPopup !== undefined
-                         restoreMode: Binding.RestoreBinding
+                        target: systemTrayLoader.item
+                        property: "barRoot"
+                        value: root
+                        when: systemTrayLoader.status === Loader.Ready
+                        restoreMode: Binding.RestoreBinding
                      }
                  }
              }
 
-             // ═══ PILL 4: Battery ═══
+             // ═══ PILL 5: Keyboard Layout ═══
+            Rectangle {
+                height: 28
+                width: keyboardLoader.implicitWidth + 16
+                radius: 14
+                color: pywal.surfaceContainer
+                border.width: 1
+                border.color: Qt.rgba(0, 0, 0, 0.15)
+
+                Loader {
+                    id: keyboardLoader
+                    anchors.centerIn: parent
+                    asynchronous: true
+                    source: "components/KeyboardLayout.qml"
+
+                    Binding {
+                        target: keyboardLoader.item
+                        property: "pywal"
+                        value: root.pywal
+                        when: keyboardLoader.status === Loader.Ready
+                    }
+                }
+            }
+             
+             // ═══ PILL 6: Battery ═══
              Rectangle {
                  id: powerPill
                  height: 28
@@ -528,8 +563,8 @@ Item {
                      source: "components/Battery.qml"
                  }
              }
-
-             // ═══ PILL 5: Settings Cog ═══
+             
+             // ═══ PILL 7: Settings Cog ═══
              Rectangle {
                  id: settingsPill
                  height: 28
@@ -587,7 +622,7 @@ Item {
                  }
              }
         }
-
+        
         // ═══════════════════════════════════════════════════════════════
         // MEDIA MODULE - Always visible (shows "No media" when not playing)
         // ═══════════════════════════════════════════════════════════════
@@ -629,12 +664,12 @@ Item {
                 }
             }
             
-             Loader {
-                 id: mediaPlayerLoader
-                 anchors.centerIn: parent
-                 asynchronous: true
-                 source: "components/MediaPlayer.qml"
-             }
-        }
-    }
-}
+              Loader {
+                  id: mediaPlayerLoader
+                  anchors.centerIn: parent
+                  asynchronous: true
+                  source: "components/MediaPlayer.qml"
+              }
+         }
+     }
+ }

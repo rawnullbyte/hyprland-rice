@@ -24,18 +24,15 @@ PanelWindow {
     readonly property color cBorder: Qt.rgba(cText.r, cText.g, cText.b, 0.08)
     readonly property color cSurfaceContainer: Qt.rgba(cText.r, cText.g, cText.b, 0.06)
     readonly property color cSurfaceHover: Qt.rgba(cText.r, cText.g, cText.b, 0.10)
-    
     readonly property color cPrimaryActive: Qt.rgba(cPrimary.r, cPrimary.g, cPrimary.b, 0.2)
     readonly property color cPrimaryBorder: Qt.rgba(cPrimary.r, cPrimary.g, cPrimary.b, 0.4)
     readonly property color cPrimaryBorderHover: Qt.rgba(cPrimary.r, cPrimary.g, cPrimary.b, 0.6)
 
     screen: Quickshell.screens[0]
-
     anchors {
         top: true
         right: true
     }
-
     margins {
         right: customRightMargin
     }
@@ -45,7 +42,35 @@ PanelWindow {
     implicitHeight: contentColumn.implicitHeight + 32
     visible: shouldShow || container.opacity > 0
 
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: shouldShow ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+
+    // ==================== FOCUS & CLOSE LOGIC (consistent with all other popups) ====================
+    property bool hasFocused: false
+    property bool isUnfocused: false
+
+    function close() {
+        shouldShow = false
+        hasFocused = false
+        isUnfocused = false
+    }
+
+    onShouldShowChanged: {
+        if (!shouldShow) {
+            hasFocused = false
+            isUnfocused = false
+        }
+    }
+
+    Timer {
+        id: unfocusCloseTimer
+        interval: 250
+        repeat: false
+        onTriggered: {
+            if (!container.activeFocus && popupWindow.shouldShow) {
+                popupWindow.close()
+            }
+        }
+    }
 
     FocusScope {
         id: container
@@ -55,8 +80,34 @@ PanelWindow {
         transformOrigin: Item.TopRight
         focus: true
 
-        Keys.onEscapePressed: popupWindow.shouldShow = false
+        // Main focus logic
+        onActiveFocusChanged: {
+            if (activeFocus) {
+                hasFocused = true
+                isUnfocused = false
+                unfocusCloseTimer.stop()
+                return
+            }
 
+            // Lost focus
+            if (popupWindow.shouldShow && opacity > 0.3) {
+                isUnfocused = true
+                unfocusCloseTimer.restart()
+            }
+        }
+
+        Keys.onEscapePressed: popupWindow.close()
+
+        Connections {
+            target: popupWindow
+            function onShouldShowChanged() {
+                if (popupWindow.shouldShow) {
+                    Qt.callLater(() => container.forceActiveFocus())
+                }
+            }
+        }
+
+        // Mouse hover fallback
         property bool mouseHasEntered: false
         property bool mouseInside: hoverHandler.hovered
 
@@ -65,13 +116,13 @@ PanelWindow {
             function onShouldShowChanged() {
                 if (popupWindow.shouldShow) {
                     container.mouseHasEntered = false
-                    closeTimer.stop()
+                    mouseCloseTimer.stop()
                 }
             }
         }
 
         Timer {
-            id: closeTimer
+            id: mouseCloseTimer
             interval: 400
             onTriggered: {
                 if (!container.mouseInside && container.mouseHasEntered && popupWindow.shouldShow) {
@@ -85,13 +136,14 @@ PanelWindow {
             onHoveredChanged: {
                 if (hovered) {
                     container.mouseHasEntered = true
-                    closeTimer.stop()
-                } else {
-                    closeTimer.start()
+                    mouseCloseTimer.stop()
+                } else if (container.mouseHasEntered && popupWindow.shouldShow) {
+                    mouseCloseTimer.restart()
                 }
             }
         }
 
+        // Animation
         states: State {
             name: "visible"
             when: popupWindow.shouldShow
@@ -115,6 +167,7 @@ PanelWindow {
             }
         ]
 
+        // ==================== BACKGROUND & CONTENT ====================
         Rectangle {
             anchors.fill: parent
             radius: 16
@@ -129,490 +182,445 @@ PanelWindow {
                 shadowBlur: 1.0
                 shadowVerticalOffset: 6
             }
-        }
 
-        ColumnLayout {
-            id: contentColumn
-            anchors.fill: parent
-            anchors.margins: 12
-            spacing: 8
+            ColumnLayout {
+                id: contentColumn
+                anchors.fill: parent
+                anchors.margins: 12
+                spacing: 8
 
-            Text {
-                text: "Quick Settings"
-                font.family: "Inter"
-                font.pixelSize: 13
-                font.weight: Font.Medium
-                color: cPrimary
-                Layout.bottomMargin: 4
-            }
+                Text {
+                    text: "Quick Settings"
+                    font.family: "Inter"
+                    font.pixelSize: 13
+                    font.weight: Font.Medium
+                    color: cPrimary
+                    Layout.bottomMargin: 4
+                }
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 1
-                color: Qt.rgba(1, 1, 1, 0.08)
-            }
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 1
+                    color: Qt.rgba(1, 1, 1, 0.08)
+                }
 
-            Text {
-                text: "Power Profile"
-                font.family: "Inter"
-                font.pixelSize: 10
-                font.weight: Font.Medium
-                color: Qt.rgba(cText.r, cText.g, cText.b, 0.5)
-                Layout.topMargin: 4
-            }
+                Text {
+                    text: "Power Profile"
+                    font.family: "Inter"
+                    font.pixelSize: 10
+                    font.weight: Font.Medium
+                    color: Qt.rgba(cText.r, cText.g, cText.b, 0.5)
+                    Layout.topMargin: 4
+                }
 
-            // Optimized Power Profile Row with smooth animations
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 6
+                // Power Profile Row
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
 
-                Repeater {
-                    id: profileRepeater
-                    model: popupWindow.powerProfiles.availableProfiles
+                    Repeater {
+                        id: profileRepeater
+                        model: popupWindow.powerProfiles.availableProfiles
 
-                    Rectangle {
-                        id: profileButton
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 32
-                        radius: 10
-                        
-                        property bool isActive: modelData === popupWindow.powerProfiles.activeProfile
-                        property bool isHovered: false
-                        
-                        // Smooth color transitions
-                        property color normalColor: isActive ? popupWindow.cPrimaryActive : cSurfaceContainer
-                        property color hoverColor: cSurfaceHover
-                        
-                        color: isHovered ? hoverColor : normalColor
-                        
-                        Behavior on color {
-                            ColorAnimation { 
-                                duration: 150
-                                easing.type: Easing.OutCubic
+                        Rectangle {
+                            id: profileButton
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 32
+                            radius: 10
+
+                            property bool isActive: modelData === popupWindow.powerProfiles.activeProfile
+                            property bool isHovered: false
+
+                            property color normalColor: isActive ? popupWindow.cPrimaryActive : cSurfaceContainer
+                            property color hoverColor: cSurfaceHover
+                            color: isHovered ? hoverColor : normalColor
+
+                            Behavior on color {
+                                ColorAnimation { duration: 150; easing.type: Easing.OutCubic }
                             }
-                        }
-                        
-                        border.width: 1
-                        property color normalBorder: isActive ? popupWindow.cPrimaryBorder : "transparent"
-                        property color hoverBorder: isActive ? popupWindow.cPrimaryBorderHover : Qt.rgba(cText.r, cText.g, cText.b, 0.15)
-                        
-                        border.color: isHovered ? hoverBorder : normalBorder
-                        
-                        Behavior on border.color {
-                            ColorAnimation { 
-                                duration: 150
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-                        
-                        // Click animation
-                        property real normalScale: 1.0
-                        property real pressedScale: 0.95
-                        scale: normalScale
-                        
-                        Behavior on scale {
-                            NumberAnimation { 
-                                duration: 100
-                                easing.type: Easing.OutBack
-                                easing.overshoot: 0.5
-                            }
-                        }
 
-                        ColumnLayout {
-                            anchors.centerIn: parent
-                            spacing: 2
+                            border.width: 1
+                            property color normalBorder: isActive ? popupWindow.cPrimaryBorder : "transparent"
+                            property color hoverBorder: isActive ? popupWindow.cPrimaryBorderHover : Qt.rgba(cText.r, cText.g, cText.b, 0.15)
+                            border.color: isHovered ? hoverBorder : normalBorder
 
-                            Text {
-                                id: iconText
-                                text: {
-                                    switch (modelData) {
+                            Behavior on border.color {
+                                ColorAnimation { duration: 150; easing.type: Easing.OutCubic }
+                            }
+
+                            property real normalScale: 1.0
+                            property real pressedScale: 0.95
+                            scale: normalScale
+
+                            Behavior on scale {
+                                NumberAnimation { duration: 100; easing.type: Easing.OutBack; easing.overshoot: 0.5 }
+                            }
+
+                            ColumnLayout {
+                                anchors.centerIn: parent
+                                spacing: 2
+
+                                Text {
+                                    text: {
+                                        switch (modelData) {
                                         case "performance": return "󰓅"
                                         case "balanced": return "󰍷"
                                         case "power-saver": return "󰌪"
                                         default: return "󰍷"
+                                        }
                                     }
-                                }
-                                font.family: "Material Design Icons"
-                                font.pixelSize: 14
-                                color: profileButton.isActive ? popupWindow.cPrimary : popupWindow.cText
-                                Layout.alignment: Qt.AlignHCenter
-                                
-                                Behavior on color {
-                                    ColorAnimation { 
-                                        duration: 100
-                                        easing.type: Easing.OutCubic
-                                    }
-                                }
-                            }
+                                    font.family: "Material Design Icons"
+                                    font.pixelSize: 14
+                                    color: profileButton.isActive ? popupWindow.cPrimary : popupWindow.cText
+                                    Layout.alignment: Qt.AlignHCenter
 
-                            Text {
-                                id: labelText
-                                text: {
-                                    switch (modelData) {
+                                    Behavior on color { ColorAnimation { duration: 100; easing.type: Easing.OutCubic } }
+                                }
+
+                                Text {
+                                    text: {
+                                        switch (modelData) {
                                         case "performance": return "Perf"
                                         case "balanced": return "Bal"
                                         case "power-saver": return "Save"
                                         default: return modelData
+                                        }
                                     }
-                                }
-                                font.family: "Inter"
-                                font.pixelSize: 8
-                                font.weight: Font.Medium
-                                color: profileButton.isActive ? popupWindow.cPrimary : Qt.rgba(popupWindow.cText.r, popupWindow.cText.g, popupWindow.cText.b, 0.6)
-                                Layout.alignment: Qt.AlignHCenter
-                                
-                                Behavior on color {
-                                    ColorAnimation { 
-                                        duration: 100
-                                        easing.type: Easing.OutCubic
-                                    }
+                                    font.family: "Inter"
+                                    font.pixelSize: 8
+                                    font.weight: Font.Medium
+                                    color: profileButton.isActive ? popupWindow.cPrimary : Qt.rgba(popupWindow.cText.r, popupWindow.cText.g, popupWindow.cText.b, 0.6)
+                                    Layout.alignment: Qt.AlignHCenter
+
+                                    Behavior on color { ColorAnimation { duration: 100; easing.type: Easing.OutCubic } }
                                 }
                             }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                hoverEnabled: true
+
+                                onEntered: profileButton.isHovered = true
+                                onExited: profileButton.isHovered = false
+
+                                onClicked: {
+                                    profileButton.scale = profileButton.pressedScale
+                                    clickFeedbackTimer.start()
+                                    popupWindow.powerProfiles.setProfile(modelData)
+                                }
+
+                                Timer {
+                                    id: clickFeedbackTimer
+                                    interval: 100
+                                    onTriggered: profileButton.scale = profileButton.normalScale
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 1
+                    color: Qt.rgba(1, 1, 1, 0.08)
+                    Layout.topMargin: 4
+                }
+
+                Text {
+                    text: "Controls"
+                    font.family: "Inter"
+                    font.pixelSize: 10
+                    font.weight: Font.Medium
+                    color: Qt.rgba(cText.r, cText.g, cText.b, 0.5)
+                    Layout.topMargin: 4
+                }
+
+                // DND Toggle
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Text {
+                        id: dndIcon
+                        text: settingsControls ? (settingsControls.dndEnabled ? "󰂚" : "󰂛") : "󰂛"
+                        font.family: "Material Design Icons"
+                        font.pixelSize: 14
+                        color: settingsControls && settingsControls.dndEnabled ? popupWindow.cPrimary : popupWindow.cText
+
+                        Behavior on color { ColorAnimation { duration: 150 } }
+                    }
+
+                    Text {
+                        text: "Do Not Disturb"
+                        font.family: "Inter"
+                        font.pixelSize: 11
+                        color: popupWindow.cText
+                        Layout.fillWidth: true
+                    }
+
+                    Text {
+                        text: settingsControls ? (settingsControls.dndEnabled ? "On" : "Off") : "Off"
+                        font.family: "Inter"
+                        font.pixelSize: 9
+                        font.weight: Font.Medium
+                        color: settingsControls && settingsControls.dndEnabled ? popupWindow.cPrimary : Qt.rgba(popupWindow.cText.r, popupWindow.cText.g, popupWindow.cText.b, 0.5)
+                        visible: settingsControls && settingsControls.isAvailable
+
+                        Behavior on color { ColorAnimation { duration: 150 } }
+                    }
+
+                    Rectangle {
+                        id: dndToggle
+                        Layout.preferredWidth: 36
+                        Layout.preferredHeight: 20
+                        radius: 10
+                        color: dndMouseArea.containsMouse ?
+                                   (settingsControls && settingsControls.dndEnabled ? Qt.rgba(popupWindow.cPrimary.r, popupWindow.cPrimary.g, popupWindow.cPrimary.b, 0.5) : Qt.rgba(1, 1, 1, 0.15)) :
+                                   (settingsControls && settingsControls.dndEnabled ? popupWindow.cPrimary : Qt.rgba(1, 1, 1, 0.1))
+
+                        Behavior on color { ColorAnimation { duration: 150 } }
+
+                        Rectangle {
+                            width: 16
+                            height: 16
+                            radius: 8
+                            color: "#ffffff"
+                            anchors.verticalCenter: parent.verticalCenter
+                            x: (settingsControls && settingsControls.dndEnabled) ? parent.width - 18 : 2
+
+                            Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
                         }
 
                         MouseArea {
-                            id: profileMouseArea
+                            id: dndMouseArea
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             hoverEnabled: true
-                            
-                            onEntered: {
-                                profileButton.isHovered = true
-                            }
-                            onExited: {
-                                profileButton.isHovered = false
-                            }
                             onClicked: {
-                                profileButton.scale = profileButton.pressedScale
-                                clickFeedbackTimer.start()
-                                popupWindow.powerProfiles.setProfile(modelData)
-                            }
-                            
-                            Timer {
-                                id: clickFeedbackTimer
-                                interval: 100
-                                onTriggered: profileButton.scale = profileButton.normalScale
+                                if (settingsControls && settingsControls.toggleDND) {
+                                    settingsControls.toggleDND()
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 1
-                color: Qt.rgba(1, 1, 1, 0.08)
-                Layout.topMargin: 4
-            }
-
-            Text {
-                text: "Controls"
-                font.family: "Inter"
-                font.pixelSize: 10
-                font.weight: Font.Medium
-                color: Qt.rgba(cText.r, cText.g, cText.b, 0.5)
-                Layout.topMargin: 4
-            }
-
-            // DND Toggle - Integrated with SettingsControls service
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                // Dynamic DND icon that changes based on state
-                Text {
-                    id: dndIcon
-                    text: settingsControls ? (settingsControls.dndEnabled ? "󰂚" : "󰂛") : "󰂛"
-                    font.family: "Material Design Icons"
-                    font.pixelSize: 14
-                    color: settingsControls && settingsControls.dndEnabled ? popupWindow.cPrimary : popupWindow.cText
-                    
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
-                    }
-                }
-
-                Text {
-                    text: "Do Not Disturb"
-                    font.family: "Inter"
-                    font.pixelSize: 11
-                    color: popupWindow.cText
+                // Audio Mute Toggle
+                RowLayout {
                     Layout.fillWidth: true
-                }
-                
-                // Status label
-                Text {
-                    text: settingsControls ? (settingsControls.dndEnabled ? "On" : "Off") : "Off"
-                    font.family: "Inter"
-                    font.pixelSize: 9
-                    font.weight: Font.Medium
-                    color: settingsControls && settingsControls.dndEnabled ? popupWindow.cPrimary : Qt.rgba(popupWindow.cText.r, popupWindow.cText.g, popupWindow.cText.b, 0.5)
-                    visible: settingsControls && settingsControls.isAvailable
-                    
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
+                    spacing: 8
+
+                    Text {
+                        text: popupWindow.audio.muted ? "󰖁" : "󰕾"
+                        font.family: "Material Design Icons"
+                        font.pixelSize: 14
+                        color: popupWindow.audio.muted ? popupWindow.cPrimary : popupWindow.cText
+
+                        Behavior on color { ColorAnimation { duration: 150 } }
                     }
-                }
 
-                Rectangle {
-                    id: dndToggle
-                    Layout.preferredWidth: 36
-                    Layout.preferredHeight: 20
-                    radius: 10
-                    color: dndMouseArea.containsMouse ? 
-                           (settingsControls && settingsControls.dndEnabled ? Qt.rgba(popupWindow.cPrimary.r, popupWindow.cPrimary.g, popupWindow.cPrimary.b, 0.5) : Qt.rgba(1, 1, 1, 0.15)) :
-                           (settingsControls && settingsControls.dndEnabled ? popupWindow.cPrimary : Qt.rgba(1, 1, 1, 0.1))
+                    Text {
+                        text: "Mute Audio"
+                        font.family: "Inter"
+                        font.pixelSize: 11
+                        color: popupWindow.cText
+                        Layout.fillWidth: true
+                    }
 
-                    Behavior on color { ColorAnimation { duration: 150 } }
+                    Text {
+                        text: popupWindow.audio.muted ? "Muted" : "On"
+                        font.family: "Inter"
+                        font.pixelSize: 9
+                        font.weight: Font.Medium
+                        color: popupWindow.audio.muted ? popupWindow.cPrimary : Qt.rgba(popupWindow.cText.r, popupWindow.cText.g, popupWindow.cText.b, 0.5)
+
+                        Behavior on color { ColorAnimation { duration: 150 } }
+                    }
 
                     Rectangle {
-                        width: 16
-                        height: 16
-                        radius: 8
-                        color: "#ffffff"
-                        anchors.verticalCenter: parent.verticalCenter
-                        x: (settingsControls && settingsControls.dndEnabled) ? parent.width - 18 : 2
+                        id: muteToggle
+                        Layout.preferredWidth: 36
+                        Layout.preferredHeight: 20
+                        radius: 10
+                        color: muteMouseArea.containsMouse ?
+                                   (popupWindow.audio.muted ? Qt.rgba(popupWindow.cPrimary.r, popupWindow.cPrimary.g, popupWindow.cPrimary.b, 0.5) : Qt.rgba(1, 1, 1, 0.15)) :
+                                   (popupWindow.audio.muted ? popupWindow.cPrimary : Qt.rgba(1, 1, 1, 0.1))
 
-                        Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-                    }
+                        Behavior on color { ColorAnimation { duration: 150 } }
 
-                    MouseArea {
-                        id: dndMouseArea
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-                        onClicked: {
-                            if (settingsControls && settingsControls.toggleDND) {
-                                settingsControls.toggleDND()
-                            } else {
-                                console.warn("SettingsControls not available or toggleDND not found")
-                            }
+                        Rectangle {
+                            width: 16
+                            height: 16
+                            radius: 8
+                            color: "#ffffff"
+                            anchors.verticalCenter: parent.verticalCenter
+                            x: popupWindow.audio.muted ? parent.width - 18 : 2
+
+                            Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                        }
+
+                        MouseArea {
+                            id: muteMouseArea
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            hoverEnabled: true
+                            onClicked: popupWindow.audio.toggleMute()
                         }
                     }
                 }
-            }
 
-            // Audio Mute Toggle
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 1
+                    color: Qt.rgba(1, 1, 1, 0.08)
+                }
 
-                Text {
-                    text: popupWindow.audio.muted ? "󰖁" : "󰕾"
-                    font.family: "Material Design Icons"
-                    font.pixelSize: 14
-                    color: popupWindow.audio.muted ? popupWindow.cPrimary : popupWindow.cText
-                    
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
+                // Volume Section
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Text {
+                        text: popupWindow.audio.muted ? "󰖁" : (popupWindow.audio.percentage >= 70 ? "󰕾" : (popupWindow.audio.percentage >= 30 ? "󰖀" : "󰕿"))
+                        font.family: "Material Design Icons"
+                        font.pixelSize: 14
+                        color: popupWindow.cText
+                    }
+
+                    Text {
+                        text: "Volume"
+                        font.family: "Inter"
+                        font.pixelSize: 11
+                        color: popupWindow.cText
+                        Layout.fillWidth: true
+                    }
+
+                    Text {
+                        text: popupWindow.audio.percentage + "%"
+                        font.family: "Inter"
+                        font.pixelSize: 10
+                        font.weight: Font.Medium
+                        color: Qt.rgba(popupWindow.cText.r, popupWindow.cText.g, popupWindow.cText.b, 0.6)
                     }
                 }
 
-                Text {
-                    text: "Mute Audio"
-                    font.family: "Inter"
-                    font.pixelSize: 11
-                    color: popupWindow.cText
+                Slider {
+                    id: volumeSlider
                     Layout.fillWidth: true
-                }
-                
-                // Status label
-                Text {
-                    text: popupWindow.audio.muted ? "Muted" : "On"
-                    font.family: "Inter"
-                    font.pixelSize: 9
-                    font.weight: Font.Medium
-                    color: popupWindow.audio.muted ? popupWindow.cPrimary : Qt.rgba(popupWindow.cText.r, popupWindow.cText.g, popupWindow.cText.b, 0.5)
-                    
-                    Behavior on color {
-                        ColorAnimation { duration: 150 }
+                    Layout.preferredHeight: 20
+                    from: 0
+                    to: 100
+                    value: popupWindow.audio.percentage
+                    stepSize: 1
+                    onMoved: popupWindow.audio.setVolume(value / 100)
+
+                    background: Rectangle {
+                        x: volumeSlider.leftPadding
+                        y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
+                        width: volumeSlider.availableWidth
+                        height: 4
+                        radius: 2
+                        color: Qt.rgba(popupWindow.cText.r, popupWindow.cText.g, popupWindow.cText.b, 0.1)
+
+                        Rectangle {
+                            width: volumeSlider.visualPosition * parent.width
+                            height: parent.height
+                            radius: parent.radius
+                            color: popupWindow.cPrimary
+                        }
+                    }
+
+                    handle: Rectangle {
+                        x: volumeSlider.leftPadding + volumeSlider.visualPosition * (volumeSlider.availableWidth - width)
+                        y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
+                        width: 14
+                        height: 14
+                        radius: 7
+                        color: "#ffffff"
+                        layer.enabled: true
+                        layer.effect: MultiEffect {
+                            shadowEnabled: true
+                            shadowColor: Qt.rgba(0, 0, 0, 0.25)
+                            shadowBlur: 0.5
+                        }
                     }
                 }
 
                 Rectangle {
-                    id: muteToggle
-                    Layout.preferredWidth: 36
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 1
+                    color: Qt.rgba(1, 1, 1, 0.08)
+                }
+
+                // Brightness Section
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Text {
+                        text: "󰃠"
+                        font.family: "Material Design Icons"
+                        font.pixelSize: 14
+                        color: popupWindow.cText
+                    }
+
+                    Text {
+                        text: "Brightness"
+                        font.family: "Inter"
+                        font.pixelSize: 11
+                        color: popupWindow.cText
+                        Layout.fillWidth: true
+                    }
+
+                    Text {
+                        text: popupWindow.brightness.percentage + "%"
+                        font.family: "Inter"
+                        font.pixelSize: 10
+                        font.weight: Font.Medium
+                        color: Qt.rgba(popupWindow.cText.r, popupWindow.cText.g, popupWindow.cText.b, 0.6)
+                    }
+                }
+
+                Slider {
+                    id: brightnessSlider
+                    Layout.fillWidth: true
                     Layout.preferredHeight: 20
-                    radius: 10
-                    color: muteMouseArea.containsMouse ? 
-                           (popupWindow.audio.muted ? Qt.rgba(popupWindow.cPrimary.r, popupWindow.cPrimary.g, popupWindow.cPrimary.b, 0.5) : Qt.rgba(1, 1, 1, 0.15)) :
-                           (popupWindow.audio.muted ? popupWindow.cPrimary : Qt.rgba(1, 1, 1, 0.1))
+                    from: 0
+                    to: 100
+                    value: popupWindow.brightness.percentage
+                    stepSize: 1
+                    onMoved: popupWindow.brightness.setBrightness(value / 100)
 
-                    Behavior on color { ColorAnimation { duration: 150 } }
+                    background: Rectangle {
+                        x: brightnessSlider.leftPadding
+                        y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
+                        width: brightnessSlider.availableWidth
+                        height: 4
+                        radius: 2
+                        color: Qt.rgba(popupWindow.cText.r, popupWindow.cText.g, popupWindow.cText.b, 0.1)
 
-                    Rectangle {
-                        width: 16
-                        height: 16
-                        radius: 8
+                        Rectangle {
+                            width: brightnessSlider.visualPosition * parent.width
+                            height: parent.height
+                            radius: parent.radius
+                            color: popupWindow.cPrimary
+                        }
+                    }
+
+                    handle: Rectangle {
+                        x: brightnessSlider.leftPadding + brightnessSlider.visualPosition * (brightnessSlider.availableWidth - width)
+                        y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
+                        width: 14
+                        height: 14
+                        radius: 7
                         color: "#ffffff"
-                        anchors.verticalCenter: parent.verticalCenter
-                        x: popupWindow.audio.muted ? parent.width - 18 : 2
-
-                        Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-                    }
-
-                    MouseArea {
-                        id: muteMouseArea
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        hoverEnabled: true
-                        onClicked: popupWindow.audio.toggleMute()
-                    }
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 1
-                color: Qt.rgba(1, 1, 1, 0.08)
-            }
-
-            // Volume Section
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: popupWindow.audio.muted ? "󰖁" : (popupWindow.audio.percentage >= 70 ? "󰕾" : (popupWindow.audio.percentage >= 30 ? "󰖀" : "󰕿"))
-                    font.family: "Material Design Icons"
-                    font.pixelSize: 14
-                    color: popupWindow.cText
-                }
-
-                Text {
-                    text: "Volume"
-                    font.family: "Inter"
-                    font.pixelSize: 11
-                    color: popupWindow.cText
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: popupWindow.audio.percentage + "%"
-                    font.family: "Inter"
-                    font.pixelSize: 10
-                    font.weight: Font.Medium
-                    color: Qt.rgba(popupWindow.cText.r, popupWindow.cText.g, popupWindow.cText.b, 0.6)
-                }
-            }
-
-            Slider {
-                id: volumeSlider
-                Layout.fillWidth: true
-                Layout.preferredHeight: 20
-                from: 0
-                to: 100
-                value: popupWindow.audio.percentage
-                stepSize: 1
-                onMoved: popupWindow.audio.setVolume(value / 100)
-
-                background: Rectangle {
-                    x: volumeSlider.leftPadding
-                    y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
-                    width: volumeSlider.availableWidth
-                    height: 4
-                    radius: 2
-                    color: Qt.rgba(popupWindow.cText.r, popupWindow.cText.g, popupWindow.cText.b, 0.1)
-
-                    Rectangle {
-                        width: volumeSlider.visualPosition * parent.width
-                        height: parent.height
-                        radius: parent.radius
-                        color: popupWindow.cPrimary
-                    }
-                }
-
-                handle: Rectangle {
-                    x: volumeSlider.leftPadding + volumeSlider.visualPosition * (volumeSlider.availableWidth - width)
-                    y: volumeSlider.topPadding + volumeSlider.availableHeight / 2 - height / 2
-                    width: 14
-                    height: 14
-                    radius: 7
-                    color: "#ffffff"
-
-                    layer.enabled: true
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowColor: Qt.rgba(0, 0, 0, 0.25)
-                        shadowBlur: 0.5
-                    }
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 1
-                color: Qt.rgba(1, 1, 1, 0.08)
-            }
-
-            // Brightness Section
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                Text {
-                    text: "󰃠"
-                    font.family: "Material Design Icons"
-                    font.pixelSize: 14
-                    color: popupWindow.cText
-                }
-
-                Text {
-                    text: "Brightness"
-                    font.family: "Inter"
-                    font.pixelSize: 11
-                    color: popupWindow.cText
-                    Layout.fillWidth: true
-                }
-
-                Text {
-                    text: popupWindow.brightness.percentage + "%"
-                    font.family: "Inter"
-                    font.pixelSize: 10
-                    font.weight: Font.Medium
-                    color: Qt.rgba(popupWindow.cText.r, popupWindow.cText.g, popupWindow.cText.b, 0.6)
-                }
-            }
-
-            Slider {
-                id: brightnessSlider
-                Layout.fillWidth: true
-                Layout.preferredHeight: 20
-                from: 0
-                to: 100
-                value: popupWindow.brightness.percentage
-                stepSize: 1
-                onMoved: popupWindow.brightness.setBrightness(value / 100)
-
-                background: Rectangle {
-                    x: brightnessSlider.leftPadding
-                    y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
-                    width: brightnessSlider.availableWidth
-                    height: 4
-                    radius: 2
-                    color: Qt.rgba(popupWindow.cText.r, popupWindow.cText.g, popupWindow.cText.b, 0.1)
-
-                    Rectangle {
-                        width: brightnessSlider.visualPosition * parent.width
-                        height: parent.height
-                        radius: parent.radius
-                        color: popupWindow.cPrimary
-                    }
-                }
-
-                handle: Rectangle {
-                    x: brightnessSlider.leftPadding + brightnessSlider.visualPosition * (brightnessSlider.availableWidth - width)
-                    y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
-                    width: 14
-                    height: 14
-                    radius: 7
-                    color: "#ffffff"
-
-                    layer.enabled: true
-                    layer.effect: MultiEffect {
-                        shadowEnabled: true
-                        shadowColor: Qt.rgba(0, 0, 0, 0.25)
-                        shadowBlur: 0.5
+                        layer.enabled: true
+                        layer.effect: MultiEffect {
+                            shadowEnabled: true
+                            shadowColor: Qt.rgba(0, 0, 0, 0.25)
+                            shadowBlur: 0.5
+                        }
                     }
                 }
             }

@@ -1,124 +1,145 @@
-import QtQuick 6.10
-import QtQuick.Layouts 6.10
-import QtQuick.Controls 6.10
+import QtQuick
 import Quickshell
 import Quickshell.Services.SystemTray
-import Quickshell.Widgets
-import "../../services" as QsServices
 
-RowLayout {
+Item {
     id: root
-    spacing: 4
+    property var barWindow: null
+    property var trayMenuPopup: null
+    property var trayItemPopup: null
+    property var barRoot: null
 
-    property var barWindow
-    property var trayMenuPopup
+    readonly property var allTrayItems: SystemTray.items.values
+    readonly property int trayCount: allTrayItems ? allTrayItems.length : 0
 
-    readonly property var pywal: QsServices.Pywal
-    readonly property bool hasItems: SystemTray.items.length > 0
+    QsMenuOpener {
+        id: menuOpener
+    }
 
-    Repeater {
-        model: SystemTray.items
+    implicitWidth: trayRow.width
+    implicitHeight: 24
+    visible: trayCount > 0
+    opacity: trayCount > 0 ? 1 : 0
 
-        delegate: Rectangle {
-            id: trayItem
-            Layout.preferredWidth: 24
-            Layout.preferredHeight: 24
-            radius: 6
-            color: {
-                if (mouseArea.containsMouse && pywal.foreground) {
-                    return Qt.rgba(
-                        pywal.foreground.r,
-                        pywal.foreground.g,
-                        pywal.foreground.b,
-                        0.08
-                    )
-                }
-                return "transparent"
-            }
+    Behavior on opacity {
+        NumberAnimation { duration: 200 }
+    }
 
-            Behavior on color {
-                ColorAnimation { duration: 150; easing.type: Easing.OutCubic }
-            }
+    Row {
+        id: trayRow
+        anchors.centerIn: parent
+        spacing: 2
 
-            IconImage {
-                id: iconImage
-                anchors.centerIn: parent
-                width: 16
-                height: 16
-                source: modelData.icon
-                mipmap: true
-                asynchronous: true
+        Repeater {
+            model: root.trayCount
 
-                opacity: modelData.status === "Passive" ? 0.5 : 1.0
-            }
+            delegate: Item {
+                id: delegateItem
+                width: 22
+                height: 22
 
-            Rectangle {
-                anchors.centerIn: parent
-                width: 4
-                height: 4
-                radius: 2
-                color: "#658676"
-                visible: modelData.status === "NeedsAttention"
-
-                Behavior on opacity {
-                    NumberAnimation { duration: 200 }
+                property var trayItem: {
+                    if (index >= root.allTrayItems.length) return null
+                    return root.allTrayItems[index]
                 }
 
-                SequentialAnimation on opacity {
-                    running: modelData.status === "NeedsAttention"
-                    loops: Animation.Infinite
-                    NumberAnimation { to: 0.3; duration: 600 }
-                    NumberAnimation { to: 1.0; duration: 600 }
+                property string iconSource: {
+                    if (!trayItem) return ""
+                    let icon = trayItem.icon
+                    if (typeof icon === 'string') {
+                        if (icon === "") return ""
+                        if (icon.startsWith("image://icon/")) return icon
+                        if (icon.includes("?path=")) {
+                            const split = icon.split("?path=")
+                            if (split.length !== 2) return icon
+                            const name = split[0]
+                            const path = split[1]
+                            let fileName = name.substring(name.lastIndexOf("/") + 1)
+                            return `file://${path}/${fileName}`
+                        }
+                        if (icon.startsWith("/") && !icon.startsWith("file://"))
+                            return `file://${icon}`
+                        return icon
+                    }
+                    return ""
                 }
-            }
 
-            MouseArea {
-                id: mouseArea
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-                hoverEnabled: true
+                Rectangle {
+                    width: 22
+                    height: 22
+                    radius: 6
+                    color: trayArea.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
 
-                onClicked: (mouse) => {
-                    if (mouse.button === Qt.RightButton && modelData.hasMenu) {
-                        trayMenuPopup.menuHandle = modelData.menu
-                        trayMenuPopup.shouldShow = true
-                    } else if (mouse.button === Qt.LeftButton) {
-                        trayMenuPopup.shouldShow = false
-                        modelData.activate()
-                    } else if (mouse.button === Qt.MiddleButton) {
-                        trayMenuPopup.shouldShow = false
-                        modelData.secondaryActivate()
+                    Image {
+                        id: trayIcon
+                        anchors.centerIn: parent
+                        width: 16
+                        height: 16
+                        source: delegateItem.iconSource
+                        asynchronous: true
+                        smooth: true
+                        mipmap: true
+                        visible: status === Image.Ready
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        visible: !trayIcon.visible && trayItem
+                        text: trayItem?.id ? trayItem.id.charAt(0).toUpperCase() : "?"
+                        font.pixelSize: 10
+                        color: "#ffffff"
                     }
                 }
 
-                onWheel: (wheel) => {
-                    if (wheel.angleDelta.y !== 0) {
-                        modelData.scroll(wheel.angleDelta.y / 120, false)
-                    }
-                    if (wheel.angleDelta.x !== 0) {
-                        modelData.scroll(wheel.angleDelta.x / 120, true)
-                    }
-                }
-            }
+                MouseArea {
+                    id: trayArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    cursorShape: Qt.PointingHandCursor
 
-            ToolTip {
-                id: toolTip
-                visible: mouseArea.containsMouse && (modelData.tooltipTitle || modelData.tooltipDescription)
-                delay: 500
-                timeout: 3000
-                text: {
-                    let parts = []
-                    if (modelData.tooltipTitle) parts.push(modelData.tooltipTitle)
-                    if (modelData.tooltipDescription) parts.push(modelData.tooltipDescription)
-                    return parts.join("\n")
+                    onClicked: function(mouse) {
+                        if (!trayItem) return
+
+                        if (mouse.button === Qt.LeftButton) {
+                            if (trayItem.activate) {
+                                trayItem.activate()
+                            }
+                        } 
+                        else if (mouse.button === Qt.RightButton) {
+
+                            // Force close any currently open menu first
+                            if (trayItemPopup) {
+                                trayItemPopup.shouldShow = false
+                                if (trayItemPopup.close) {
+                                    trayItemPopup.close()
+                                }
+                            }
+
+                            // Close other popups via barRoot (safety)
+                            if (barRoot && barRoot.closeOtherPopups) {
+                                barRoot.closeOtherPopups(trayItemPopup)
+                            }
+
+                            // Small delay to ensure the old menu is fully gone before opening new one
+                            Qt.callLater(function() {
+                                menuOpener.menu = trayItem.menu
+
+                                if (!barWindow || !barWindow.screen) return
+
+                                const pos = root.mapToItem(barWindow.contentItem, delegateItem.x, delegateItem.y)
+                                const centerX = pos.x + delegateItem.width / 2
+
+                                if (trayItemPopup) {
+                                    trayItemPopup.trayItem = trayItem
+                                    trayItemPopup.anchorX = centerX
+                                    trayItemPopup.anchorY = pos.y
+                                    trayItemPopup.shouldShow = true
+                                }
+                            })
+                        }
+                    }
                 }
-                font.pixelSize: 12
-                padding: 6
-                leftPadding: 10
-                rightPadding: 10
-                topPadding: 6
-                bottomPadding: 6
             }
         }
     }

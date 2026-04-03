@@ -48,12 +48,12 @@ Scope {
         property var settingsPopup: item
     }
 
-    // Tray menu popup window
+    // Tray item popup window
     Loader {
-        id: trayMenuPopupLoader
-        source: "components/TrayMenuPopupWindow.qml"
+        id: trayItemPopupLoader
+        source: "components/PopupWindow.qml"
 
-        property var trayMenuPopup: item
+        property var trayItemPopup: item
     }
 
     Variants {
@@ -81,17 +81,17 @@ Scope {
                 source: "Bar.qml"
 
                  onStatusChanged: {
-                     if (status === Loader.Ready) {
-                         item.screen = Qt.binding(() => modelData)
-                         item.barWindow = Qt.binding(() => window)
-                         item.bluetoothPopup = Qt.binding(() => bluetoothPopupLoader.item)
-                         item.networkPopup = Qt.binding(() => networkPopupLoader.item)
-                         item.weatherPopup = Qt.binding(() => weatherPopupLoader.item)
-                         item.calendarPopup = Qt.binding(() => calendarPopupLoader.item)
+                      if (status === Loader.Ready) {
+                          item.screen = Qt.binding(() => modelData)
+                          item.barWindow = Qt.binding(() => window)
+                          item.bluetoothPopup = Qt.binding(() => bluetoothPopupLoader.item)
+                          item.networkPopup = Qt.binding(() => networkPopupLoader.item)
+                          item.weatherPopup = Qt.binding(() => weatherPopupLoader.item)
+                          item.calendarPopup = Qt.binding(() => calendarPopupLoader.item)
                           item.settingsPopup = Qt.binding(() => settingsPopupLoader.item)
-                          item.trayMenuPopup = Qt.binding(() => trayMenuPopupLoader.item)
-                     }
-                 }
+                          item.trayItemPopup = Qt.binding(() => trayItemPopupLoader.item)
+                      }
+                  }
             }
         }
     }

@@ -6,16 +6,14 @@ import "../../../components"
 
 Item {
     id: root
-    
     implicitWidth: hasPlayer ? 180 : 100
     implicitHeight: 30
-    
+
     readonly property var player: Players.active
     readonly property bool hasPlayer: player !== null
     readonly property bool isPlaying: player?.isPlaying ?? false
-    
     property real progressPercent: 0
-    
+
     Timer {
         id: progressTimer
         interval: 500
@@ -27,8 +25,7 @@ Item {
             }
         }
     }
-    
-    // UI Structure
+
     Item {
         id: mainContent
         anchors.fill: parent
@@ -42,6 +39,7 @@ Item {
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
             clip: true
+
             Image {
                 anchors.fill: parent
                 source: root.player?.trackArtUrl ?? ""
@@ -58,30 +56,47 @@ Item {
             anchors.bottom: progressBarBg.top
             spacing: -2
 
-            // --- TITLE MARQUEE ---
+            // ==================== TITLE MARQUEE ====================
             Item {
                 id: titleContainer
-                width: parent.width; height: 12; clip: true
-                readonly property real textGap: 60
+                width: parent.width
+                height: 12
+                clip: true
+
+                readonly property real textGap: 80
                 property real scrollX: 0
+
                 readonly property bool canScroll: titleMeasure.contentWidth > width
 
-                NumberAnimation on scrollX {
-                    id: titleAnim
-                    from: 0
-                    to: titleMeasure.contentWidth + titleContainer.textGap
-                    duration: Math.max(100, (titleMeasure.contentWidth + titleContainer.textGap) * 40)
-                    loops: Animation.Infinite
-                    running: titleContainer.canScroll
-                    paused: titleContainer.canScroll && !root.isPlaying
+                Connections {
+                    target: titleMeasure
+                    function onTextChanged() {
+                        titleAnim.stop()
+                        titleContainer.scrollX = 0
+                        if (titleContainer.canScroll && root.isPlaying) {
+                            titleAnim.restart()
+                        }
+                    }
                 }
 
-                Text { 
+                NumberAnimation {
+                    id: titleAnim
+                    target: titleContainer
+                    property: "scrollX"
+                    from: 0
+                    to: titleMeasure.contentWidth + titleContainer.textGap
+                    duration: Math.max(2000, (titleMeasure.contentWidth + titleContainer.textGap) * 40)
+                    loops: Animation.Infinite
+                    running: titleContainer.canScroll && root.isPlaying
+                }
+
+                Text {
                     id: titleMeasure
                     text: root.player?.trackTitle || "Unknown"
-                    font.family: "Inter"; font.pixelSize: 9; font.weight: Font.Bold
+                    font.family: "Inter"
+                    font.pixelSize: 9
+                    font.weight: Font.Bold
                     visible: false
-                    onTextChanged: titleContainer.scrollX = 0
                 }
 
                 Component {
@@ -93,8 +108,13 @@ Item {
                     }
                 }
 
-                Loader { sourceComponent: titleComp; x: -titleContainer.scrollX; anchors.verticalCenter: parent.verticalCenter }
-                Loader { 
+                Loader {
+                    sourceComponent: titleComp
+                    x: -titleContainer.scrollX
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+
+                Loader {
                     sourceComponent: titleComp
                     x: (titleMeasure.contentWidth + titleContainer.textGap) - titleContainer.scrollX
                     anchors.verticalCenter: parent.verticalCenter
@@ -102,31 +122,46 @@ Item {
                 }
             }
 
-            // --- AUTHOR MARQUEE ---
+            // ==================== AUTHOR MARQUEE ====================
             Item {
                 id: authorContainer
-                width: parent.width; height: 10; clip: true
-                readonly property real textGap: 60
+                width: parent.width
+                height: 10
+                clip: true
+
+                readonly property real textGap: 80
                 property real scrollX: 0
+
                 readonly property bool canScroll: authorMeasure.contentWidth > width
 
-                NumberAnimation on scrollX {
-                    id: authorAnim
-                    from: 0
-                    to: authorMeasure.contentWidth + authorContainer.textGap
-                    duration: Math.max(100, (authorMeasure.contentWidth + authorContainer.textGap) * 50)
-                    loops: Animation.Infinite
-                    running: authorContainer.canScroll
-                    paused: authorContainer.canScroll && !root.isPlaying
+                Connections {
+                    target: authorMeasure
+                    function onTextChanged() {
+                        authorAnim.stop()
+                        authorContainer.scrollX = 0
+                        if (authorContainer.canScroll && root.isPlaying) {
+                            authorAnim.restart()
+                        }
+                    }
                 }
 
-                Text { 
+                NumberAnimation {
+                    id: authorAnim
+                    target: authorContainer
+                    property: "scrollX"
+                    from: 0
+                    to: authorMeasure.contentWidth + authorContainer.textGap
+                    duration: Math.max(1800, (authorMeasure.contentWidth + authorContainer.textGap) * 50)
+                    loops: Animation.Infinite
+                    running: authorContainer.canScroll && root.isPlaying
+                }
+
+                Text {
                     id: authorMeasure
                     text: root.player?.trackArtist || "Unknown Artist"
-                    font.family: "Inter"; font.pixelSize: 8
+                    font.family: "Inter"
+                    font.pixelSize: 8
                     visible: false
-                    // CRITICAL: Reset scroll position when artist changes
-                    onTextChanged: authorContainer.scrollX = 0
                 }
 
                 Component {
@@ -138,8 +173,13 @@ Item {
                     }
                 }
 
-                Loader { sourceComponent: authorComp; x: -authorContainer.scrollX; anchors.verticalCenter: parent.verticalCenter }
-                Loader { 
+                Loader {
+                    sourceComponent: authorComp
+                    x: -authorContainer.scrollX
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+
+                Loader {
                     sourceComponent: authorComp
                     x: (authorMeasure.contentWidth + authorContainer.textGap) - authorContainer.scrollX
                     anchors.verticalCenter: parent.verticalCenter
@@ -147,27 +187,48 @@ Item {
                 }
             }
         }
-        
+
         // Progress Bar
         Rectangle {
             id: progressBarBg
-            anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right
-            height: 2; radius: 1
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: 2
+            radius: 1
             color: Qt.rgba(Pywal.foreground.r, Pywal.foreground.g, Pywal.foreground.b, 0.1)
+
             Rectangle {
                 height: parent.height
                 width: Math.max(0, Math.min(parent.width, parent.width * root.progressPercent))
-                radius: 1; color: Pywal.primary
-                Behavior on width { NumberAnimation { duration: 550; easing.type: Easing.Linear } }
+                radius: 1
+                color: Pywal.primary
+
+                Behavior on width {
+                    NumberAnimation { duration: 550; easing.type: Easing.Linear }
+                }
             }
         }
     }
-    
-    // Placeholder
+
+    // Placeholder when no player
     Row {
-        anchors.centerIn: parent; spacing: 4; visible: !hasPlayer
-        Text { text: "󰎇"; font.family: "Material Design Icons"; font.pixelSize: 12; color: Qt.rgba(Pywal.foreground.r, Pywal.foreground.g, Pywal.foreground.b, 0.4) }
-        Text { text: "No media"; font.family: "Inter"; font.pixelSize: 10; color: Qt.rgba(Pywal.foreground.r, Pywal.foreground.g, Pywal.foreground.b, 0.4) }
+        anchors.centerIn: parent
+        spacing: 4
+        visible: !hasPlayer
+
+        Text {
+            text: "󰎇"
+            font.family: "Material Design Icons"
+            font.pixelSize: 12
+            color: Qt.rgba(Pywal.foreground.r, Pywal.foreground.g, Pywal.foreground.b, 0.4)
+        }
+        Text {
+            text: "No media"
+            font.family: "Inter"
+            font.pixelSize: 10
+            color: Qt.rgba(Pywal.foreground.r, Pywal.foreground.g, Pywal.foreground.b, 0.4)
+        }
     }
 
     MouseArea {

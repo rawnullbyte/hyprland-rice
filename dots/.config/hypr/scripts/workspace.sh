@@ -4,57 +4,29 @@
 current_workspace=$(hyprctl activeworkspace -j | jq '.id')
 
 # Function to map key to target workspace
+# Logic: ranges 1-10, 11-20, 21-30, etc.
 get_target_workspace() {
     local key=$1
     
-    if [ $current_workspace -ge 1 ] && [ $current_workspace -le 10 ]; then
-        # Map 1-9 directly, 0 maps to 10
-        if [ "$key" -eq 0 ]; then
-            echo 10
-        else
-            echo $key
-        fi
-    elif [ $current_workspace -eq 11 ]; then
-        # Map 1-9 to 11-19, 0 maps to 20
-        if [ "$key" -eq 0 ]; then
-            echo 20
-        else
-            echo $((10 + key))
-        fi
+    # Calculate tens based on range: 1-10→0, 11-20→10, 21-30→20, etc.
+    local tens=$(( ((current_workspace - 1) / 10) * 10 ))
+    
+    # 0 maps to tens+10, key maps to tens+key
+    if [ "$key" -eq 0 ]; then
+        echo $((tens + 10))
     else
-        # Default behavior for other workspaces
-        if [ "$key" -eq 0 ]; then
-            echo 10
-        else
-            echo $key
-        fi
+        echo $((tens + key))
     fi
 }
 
 # Main logic
 if [ $# -ne 2 ]; then
     echo "Usage: $0 <switch|move> <key>"
-    echo "  switch - Switch to the workspace"
-    echo "  move   - Move current window to workspace"
-    echo "  key    - Should be 1-9 or 0"
     exit 1
 fi
 
 action=$1
 key=$2
-
-# Validate action
-if [ "$action" != "switch" ] && [ "$action" != "move" ]; then
-    echo "Error: Action must be 'switch' or 'move'"
-    echo "Usage: $0 <switch|move> <key>"
-    exit 1
-fi
-
-# Validate key
-if ! [[ "$key" =~ ^[0-9]$ ]]; then
-    echo "Error: Key must be a number between 0-9"
-    exit 1
-fi
 
 target=$(get_target_workspace $key)
 

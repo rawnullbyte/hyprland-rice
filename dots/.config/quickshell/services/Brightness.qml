@@ -1,5 +1,4 @@
 pragma Singleton
-
 import Quickshell
 import Quickshell.Io
 import QtQuick
@@ -11,75 +10,76 @@ Singleton {
     readonly property real level: brightness
     readonly property int percentage: Math.round(brightness * 100)
 
-    readonly property string backlightPath: "/sys/class/backlight/intel_backlight/brightness"
-    readonly property string maxBrightnessPath: "/sys/class/backlight/intel_backlight/max_brightness"
-
-    property int currentValue: 0
-    property int maxValue: 255
+    property bool _updating: false
 
     Component.onCompleted: {
-        readMaxBrightness()
-        readBrightness()
+        readCurrentBrightness()
         updateTimer.start()
     }
 
-    function readMaxBrightness(): void { maxProc.running = true }
-    function readBrightness(): void { curProc.running = true }
+    function readCurrentBrightness(): void {
+        if (_updating) return
+        _updating = true
+        readProc.running = true
+    }
 
     function setBrightness(value: real): void {
         const clamped = Math.max(0, Math.min(1, value))
         brightness = clamped
         const pct = Math.round(clamped * 100)
-        setProc.command = ["brightnessctl", "set", pct + "%"]
+        setProc.command = ["brightnessctl", "-q", "set", pct + "%"]
         setProc.running = true
     }
 
     function increaseBrightness(): void {
-        brightness = Math.min(1, brightness + 0.05)
+        brightness = Math.min(1.0, brightness + 0.05)
         incProc.running = true
     }
 
     function decreaseBrightness(): void {
-        brightness = Math.max(0, brightness - 0.05)
+        brightness = Math.max(0.0, brightness - 0.05)
         decProc.running = true
     }
 
     Process {
-        id: maxProc
-        command: ["cat", maxBrightnessPath]
+        id: readProc
+        command: ["brightnessctl", "-q", "get"]
         running: false
+
         stdout: SplitParser {
             onRead: data => {
-                const v = parseInt(data.trim())
-                if (!isNaN(v) && v > 0) maxValue = v
+                _updating = false
             }
         }
+
+        onExited: _updating = false
     }
 
     Process {
-        id: curProc
-        command: ["cat", backlightPath]
+        id: setProc
         running: false
-        stdout: SplitParser {
-            onRead: data => {
-                const v = parseInt(data.trim())
-                if (!isNaN(v)) {
-                    currentValue = v
-                    brightness = maxValue > 0 ? v / maxValue : 0
-                }
-            }
-        }
+        onExited: readCurrentBrightness()
     }
 
-    Process { id: setProc; running: false }
-    Process { id: incProc; command: ["brightnessctl", "-q", "set", "+5%"]; running: false }
-    Process { id: decProc; command: ["brightnessctl", "-q", "set", "5%-"]; running: false }
+    Process {
+        id: incProc
+        command: ["brightnessctl", "-q", "set", "+5%"]
+        running: false
+        onExited: readCurrentBrightness()
+    }
+
+    Process {
+        id: decProc
+        command: ["brightnessctl", "-q", "set", "5%-"]
+        running: false
+        onExited: readCurrentBrightness()
+    }
 
     Timer {
         id: updateTimer
-        interval: 2000
+        interval: 3000
         repeat: true
         triggeredOnStart: true
-        onTriggered: readBrightness()
+        onTriggered: readCurrentBrightness()
     }
 }
