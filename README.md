@@ -14,33 +14,6 @@ A minimal, clean, and highly customized Hyprland desktop setup with pywal color 
 - **Wallpaper**: Supports static images and video wallpapers (awww & mpvpaper)
 - **Color Scheme**: Automatic color generation with pywal
 
-## Keybindings
-
-| Key | Action |
-| :--- | :--- |
-| `Super + T` | Open terminal |
-| `Super_L` (Tap) | Application launcher (Rofi) |
-| `Super + Q` | Close active window |
-| `Super + M` | Exit Hyprland |
-| `Super + E` | Open file manager |
-| `Super + W` | Toggle floating mode |
-| `Super + F` | Toggle fullscreen |
-| `Super + L` | Lock screen |
-| `Super + V` | Clipboard history (Rofi) |
-| `Super + 0-9` | Switch workspace |
-| `Super + Alt + 0-9` | Move window to workspace |
-| `Alt + W` | Change wallpaper |
-| `Super + Shift + S / PRTSC` | Screenshot region to clipboard |
-| `Super + Arrow Keys` | Move focus (Left, Right, Up, Down) |
-
----
-
-### Mouse Controls
-
-| Key | Action |
-| :--- | :--- |
-| `Super + Left Click` | Move window |
-| `Super + Right Click` | Resize window |
 ## Installation
 
 ### Prerequisites
